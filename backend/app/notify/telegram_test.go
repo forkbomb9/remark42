@@ -20,35 +20,35 @@ func TestTelegram_New(t *testing.T) {
 	ts := mockTelegramServer()
 	defer ts.Close()
 
-	tb, err := NewTelegram("good-token", "remark_test", 2*time.Second, ts.URL+"/")
+	tb, err := NewTelegram("good-token", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.NoError(t, err)
 	assert.NotNil(t, tb)
 	assert.Equal(t, "@remark_test", tb.channelID, "@ added")
 
 	st := time.Now()
-	_, err = NewTelegram("bad-resp", "remark_test", 2*time.Second, ts.URL+"/")
+	_, err = NewTelegram("bad-resp", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.EqualError(t, err, "unexpected telegram response {OK:false Result:{FirstName:comments_test ID:707381019 IsBot:false UserName:remark42_test_bot}}")
 	assert.True(t, time.Since(st) >= 250*5*time.Millisecond)
 
-	_, err = NewTelegram("non-json-resp", "remark_test", 2*time.Second, ts.URL+"/")
+	_, err = NewTelegram("non-json-resp", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "can't decode response:")
 
-	_, err = NewTelegram("404", "remark_test", 2*time.Second, ts.URL+"/")
+	_, err = NewTelegram("404", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.EqualError(t, err, "unexpected telegram status code 404")
 
-	_, err = NewTelegram("no-such-thing", "remark_test", 2*time.Second, "http://127.0.0.1:4321/")
+	_, err = NewTelegram("no-such-thing", "remark_test", 2*time.Second, false, "http://127.0.0.1:4321/")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "can't initialize telegram notifications")
 	assert.Contains(t, err.Error(), "dial tcp 127.0.0.1:4321: connect: connection refused")
 
-	_, err = NewTelegram("good-token", "remark_test", 2*time.Second, "")
+	_, err = NewTelegram("good-token", "remark_test", 2*time.Second, false, "")
 	assert.Error(t, err, "empty api url not allowed")
 
-	_, err = NewTelegram("good-token", "remark_test", 0, ts.URL+"/")
+	_, err = NewTelegram("good-token", "remark_test", 0, false, ts.URL+"/")
 	assert.NoError(t, err, "0 timeout allowed as default")
 
-	tb, err = NewTelegram("good-token", "1234567890", 2*time.Second, ts.URL+"/")
+	tb, err = NewTelegram("good-token", "1234567890", 2*time.Second, false, ts.URL+"/")
 	assert.NoError(t, err)
 	assert.NotNil(t, tb)
 	assert.Equal(t, "1234567890", tb.channelID, "no @ prefix")
@@ -58,7 +58,7 @@ func TestTelegram_Send(t *testing.T) {
 	ts := mockTelegramServer()
 	defer ts.Close()
 
-	tb, err := NewTelegram("good-token", "remark_test", 2*time.Second, ts.URL+"/")
+	tb, err := NewTelegram("good-token", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.NoError(t, err)
 	assert.NotNil(t, tb)
 	c := store.Comment{Text: "some text", ParentID: "1", ID: "999"}
@@ -78,7 +78,7 @@ func TestTelegram_Send(t *testing.T) {
 	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp})
 	assert.NoError(t, err)
 
-	tb, err = NewTelegram("non-json-resp", "remark_test", 2*time.Second, ts.URL+"/")
+	tb, err = NewTelegram("non-json-resp", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.Error(t, err, "should fail")
 	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp, TelegramUsers: []string{"test_user_channel"}})
 	require.Error(t, err)
@@ -96,7 +96,7 @@ func TestTelegram_SendVerification(t *testing.T) {
 	ts := mockTelegramServer()
 	defer ts.Close()
 
-	tb, err := NewTelegram("good-token", "remark_test", 2*time.Second, ts.URL+"/")
+	tb, err := NewTelegram("good-token", "remark_test", 2*time.Second, false, ts.URL+"/")
 	assert.NoError(t, err)
 	assert.NotNil(t, tb)
 
@@ -147,7 +147,7 @@ func mockTelegramServer() *httptest.Server {
 	return httptest.NewServer(router)
 }
 
-func TestTelegram_escapeTitle(t *testing.T) {
+func Test_escapeTitle(t *testing.T) {
 	tbl := []struct {
 		inp string
 		out string

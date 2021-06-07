@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	log "github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/repeater"
 	"github.com/pkg/errors"
@@ -18,22 +20,23 @@ import (
 
 // Telegram implements notify.Destination for telegram
 type Telegram struct {
-	channelID string // unique identifier for the target chat or username of the target channel (in the format @channelusername)
-	token     string
-	apiPrefix string
-	timeout   time.Duration
+	channelID           string // unique identifier for the target chat or username of the target channel (in the format @channelusername)
+	token               string
+	apiPrefix           string
+	noUserNotifications bool
+	timeout             time.Duration
 }
 
 const telegramTimeOut = 5000 * time.Millisecond
 const telegramAPIPrefix = "https://api.telegram.org/bot"
 
 // NewTelegram makes telegram bot for notifications
-func NewTelegram(token, channelID string, timeout time.Duration, api string) (*Telegram, error) {
+func NewTelegram(token, channelID string, timeout time.Duration, noUserNotifications bool, api string) (*Telegram, error) {
 	if _, err := strconv.ParseInt(channelID, 10, 64); err != nil {
 		channelID = "@" + channelID // if channelID not a number enforce @ prefix
 	}
 
-	res := Telegram{channelID: channelID, token: token, apiPrefix: api, timeout: timeout}
+	res := Telegram{channelID: channelID, token: token, apiPrefix: api, timeout: timeout, noUserNotifications: noUserNotifications}
 	if res.apiPrefix == "" {
 		res.apiPrefix = telegramAPIPrefix
 	}
@@ -86,15 +89,33 @@ func NewTelegram(token, channelID string, timeout time.Duration, api string) (*T
 
 // Send to telegram recipients
 func (t *Telegram) Send(ctx context.Context, req Request) error {
-	var err error
-
+	result := new(multierror.Error)
 	if t.channelID != "" {
-		err = t.sendAdminNotification(ctx, req)
-		if err != nil{
-			return errors.Wrapf(err, "problem sending admin telegram notification")
-		}
+		err := t.sendAdminNotification(ctx, req)
+		result = multierror.Append(errors.Wrapf(err, "problem sending admin telegram notification"))
 	}
 
+	if !t.noUserNotifications {
+		for _, user := range req.TelegramUsers {
+			err := t.sendUserNotification(ctx, req, user)
+			result = multierror.Append(errors.Wrapf(err, "problem sending user telegram notification to %q", user))
+		}
+	}
+	return result.ErrorOrNil()
+}
+
+func (t *Telegram) sendUserNotification(ctx context.Context, req Request, chatID string) error {
+	log.Printf("[DEBUG] send user telegram notification to %s, comment id %s", chatID, req.Comment.ID)
+
+	msg, err := buildTelegramMessage(req)
+	if err != nil {
+		return errors.Wrap(err, "failed to make telegram message body")
+	}
+
+	err = t.sendMessage(ctx, msg, chatID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to send user notification about %s", req.Comment.ID)
+	}
 	return nil
 }
 
