@@ -66,7 +66,7 @@ func TestTelegram_Send(t *testing.T) {
 	cp := store.Comment{Text: "some parent text"}
 	cp.User.Name = "to"
 
-	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp})
+	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp, TelegramUsers: []string{"test_user_channel"}})
 	assert.NoError(t, err)
 	c.PostTitle = "test title"
 	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp})
@@ -80,7 +80,7 @@ func TestTelegram_Send(t *testing.T) {
 
 	tb, err = NewTelegram("non-json-resp", "remark_test", 2*time.Second, ts.URL+"/")
 	assert.Error(t, err, "should fail")
-	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp})
+	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp, TelegramUsers: []string{"test_user_channel"}})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected telegram status code 404", "send on broken tg")
 
@@ -88,7 +88,7 @@ func TestTelegram_Send(t *testing.T) {
 
 	// bad API URL
 	tb.apiPrefix = "http://non-existent"
-	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp})
+	err = tb.Send(context.TODO(), Request{Comment: c, parent: cp, TelegramUsers: []string{"test_user_channel"}})
 	assert.Error(t, err)
 }
 
